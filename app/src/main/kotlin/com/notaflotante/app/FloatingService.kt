@@ -2,6 +2,8 @@ package com.notaflotante.app
 
 import android.app.*
 import android.content.*
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.ServiceInfo
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
