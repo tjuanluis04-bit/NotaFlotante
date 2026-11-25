@@ -40,7 +40,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL; setBackgroundColor(bg)
             setPadding(dp(28), dp(72), dp(28), dp(28))
         }
-        root.addView(TextView(this).apply { text = "✎"; textSize = 54f; setTextColor(0xFFFFF176.toInt()) })
+        root.addView(BubbleView(this), LinearLayout.LayoutParams(dp(88), dp(88)))
         root.addView(TextView(this).apply {
             text = "Nota flotante"; textSize = 32f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
         })

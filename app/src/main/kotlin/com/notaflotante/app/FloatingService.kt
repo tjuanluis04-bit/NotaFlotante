@@ -14,6 +14,9 @@ import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 
+class Theme(val card: Int, val head: Int, val ink: Int, val hint: Int, val label: Int, val chipDark: Int,
+            val stroke: Int, val sel: Int, val text: IntArray, val hl: IntArray, val ruled: Boolean)
+
 class FloatingService : Service() {
     private lateinit var wm: WindowManager
     private lateinit var prefs: SharedPreferences
@@ -21,9 +24,10 @@ class FloatingService : Service() {
     private lateinit var cp: WindowManager.LayoutParams
     private lateinit var bp: WindowManager.LayoutParams
     private var card: LinearLayout? = null
-    private var bubble: TextView? = null
+    private var bubble: View? = null
     private var showingBubble = false
-    private var textColor = INK
+    private var th = NIGHT
+    private var textColor = 0
     private var insStart = 0
     private var insCount = 0
     private val h = Handler(Looper.getMainLooper())
@@ -31,10 +35,16 @@ class FloatingService : Service() {
     private val swatches = mutableListOf<Pair<View, Int>>()
 
     companion object {
-        val INK = 0xFF22223B.toInt()
-        val DARK = 0xFF2B2D42.toInt()
-        val TEXT_COLORS = intArrayOf(INK, 0xFFD62828.toInt(), 0xFF1D4ED8.toInt(), 0xFF15803D.toInt(), 0xFF7E22CE.toInt(), 0xFFEA580C.toInt())
-        val HL_COLORS = intArrayOf(0xFFFFF176.toInt(), 0xFFA7F3D0.toInt(), 0xFFBAE6FD.toInt(), 0xFFFBCFE8.toInt(), 0xFFFED7AA.toInt())
+        val OLD_INK = 0xFF22223B.toInt()
+        val NIGHT = Theme(0xFF1B1C26.toInt(), 0xFF0F1019.toInt(), 0xFFE8E8F0.toInt(), 0x66FFFFFF, 0xAAFFFFFF.toInt(),
+            0xFFE8E8F0.toInt(), 0x33FFFFFF, 0xFFFFFFFF.toInt(),
+            intArrayOf(0xFFE8E8F0.toInt(), 0xFFFF6B6B.toInt(), 0xFF6CA8FF.toInt(), 0xFF4ADE80.toInt(), 0xFFC084FC.toInt(), 0xFFFFA94D.toInt()),
+            intArrayOf(0xFF8A7A00.toInt(), 0xFF1F7A5A.toInt(), 0xFF1F5E8A.toInt(), 0xFF8A2F5E.toInt(), 0xFF8A4A1F.toInt()), false)
+        val NOTE = Theme(0xFFFBF6E6.toInt(), 0xFF2B2D42.toInt(), 0xFF1E2A5A.toInt(), 0x66000000, 0x99000000.toInt(),
+            0xFF2B2D42.toInt(), 0x33000000, 0xFF2B2D42.toInt(),
+            intArrayOf(0xFF1E2A5A.toInt(), 0xFFD62828.toInt(), 0xFF1D4ED8.toInt(), 0xFF15803D.toInt(), 0xFF7E22CE.toInt(), 0xFFEA580C.toInt()),
+            intArrayOf(0xFFFFF176.toInt(), 0xFFA7F3D0.toInt(), 0xFFBAE6FD.toInt(), 0xFFFBCFE8.toInt(), 0xFFFED7AA.toInt()), true)
+        val THEMES = arrayOf(NIGHT, NOTE)
         const val FL = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
     }
 
@@ -46,6 +56,7 @@ class FloatingService : Service() {
         super.onCreate()
         wm = getSystemService(WindowManager::class.java)
         prefs = getSharedPreferences("nota", MODE_PRIVATE)
+        th = THEMES[prefs.getInt("theme", 0)]; textColor = th.text[0]
     }
 
     override fun onStartCommand(i: Intent?, f: Int, id: Int): Int {
@@ -72,7 +83,7 @@ class FloatingService : Service() {
 
     private fun chip(t: String, dark: Boolean, click: () -> Unit) = TextView(this).apply {
         text = t; textSize = 14f; typeface = Typeface.DEFAULT_BOLD
-        setTextColor(if (dark) DARK else Color.WHITE); setPadding(dp(10), dp(8), dp(10), dp(8))
+        setTextColor(if (dark) th.chipDark else Color.WHITE); setPadding(dp(10), dp(8), dp(10), dp(8))
         setOnClickListener { click() }
     }
 
@@ -83,7 +94,7 @@ class FloatingService : Service() {
 
     private fun oval(c: Int, sel: Boolean) = GradientDrawable().apply {
         shape = GradientDrawable.OVAL; setColor(c)
-        setStroke(if (sel) dp(3) else dp(1), if (sel) DARK else 0x33000000)
+        setStroke(if (sel) dp(3) else dp(1), if (sel) th.sel else th.stroke)
     }
 
     private fun refreshSwatches() = swatches.forEach { (v, c) -> v.background = oval(c, c == textColor) }
@@ -92,7 +103,7 @@ class FloatingService : Service() {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(10), 0, dp(6), 0)
         addView(TextView(context).apply {
-            text = label; textSize = 12f; setTextColor(0x99000000.toInt())
+            text = label; textSize = 12f; setTextColor(th.label)
             layoutParams = LinearLayout.LayoutParams(dp(58), -2)
         })
     }
@@ -100,37 +111,40 @@ class FloatingService : Service() {
     private fun build() {
         val c = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = shape(0xFFFFFDF5.toInt(), dp(18).toFloat(), 0x22000000, dp(1))
+            background = shape(th.card, dp(18).toFloat(), th.stroke, dp(1))
         }
         val r = dp(18).toFloat()
         val head = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL; setPadding(dp(4), dp(2), dp(4), dp(2))
-            background = GradientDrawable().apply { setColor(DARK); cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f) }
+            background = GradientDrawable().apply { setColor(th.head); cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f) }
         }
         val title = TextView(this).apply {
-            text = "✎  Nota"; setTextColor(Color.WHITE); textSize = 15f; typeface = Typeface.DEFAULT_BOLD
+            text = "Nota"; setTextColor(Color.WHITE); textSize = 15f; typeface = Typeface.DEFAULT_BOLD
             setPadding(dp(12), dp(10), dp(4), dp(10)); layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
         head.addView(title)
+        head.addView(chip(if (th === NIGHT) "▤" else "☾", false) { toggleTheme() })
         head.addView(chip("Copiar", false) { copy() })
         head.addView(chip("—", false) { collapse() })
         head.addView(chip("✕", false) { stopSelf() })
         c.addView(head)
 
+        if (th.text.indexOf(textColor) < 0) textColor = th.text[0]
         val r1 = row("Texto")
-        TEXT_COLORS.forEach { col ->
+        th.text.forEach { col ->
             val v = swatch(col); swatches.add(v to col)
             v.setOnClickListener { textColor = col; refreshSwatches(); if (hasSel()) paint(true, col) }
             r1.addView(v)
         }
         val r2 = row("Resaltar")
-        HL_COLORS.forEach { col -> val v = swatch(col); v.setOnClickListener { paint(false, col) }; r2.addView(v) }
+        th.hl.forEach { col -> val v = swatch(col); v.setOnClickListener { paint(false, col) }; r2.addView(v) }
         r2.addView(chip("⌫", true) { paint(false, null) })
         c.addView(r1); c.addView(r2); refreshSwatches()
 
-        editor = EditText(this).apply {
-            background = null; hint = "Escribe tu nota…"; setHintTextColor(0x66000000); setTextColor(INK)
-            textSize = 17f; gravity = Gravity.TOP or Gravity.START; setPadding(dp(14), dp(8), dp(14), dp(8))
+        editor = NotebookEditText(this).apply {
+            ruled = th.ruled; lineColor = 0x553F7FBF; marginColor = 0x88D94F4F.toInt()
+            background = null; hint = "Escribe tu nota…"; setHintTextColor(th.hint); setTextColor(th.ink)
+            textSize = 17f; gravity = Gravity.TOP or Gravity.START; setPadding(if (th.ruled) dp(46) else dp(14), dp(8), dp(14), dp(8))
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
         }
@@ -138,6 +152,8 @@ class FloatingService : Service() {
             val sp = SpannableStringBuilder(Html.fromHtml(it, Html.FROM_HTML_MODE_COMPACT))
             while (sp.isNotEmpty() && sp.last() == '\n') sp.delete(sp.length - 1, sp.length)
             editor.setText(sp)
+            val pal = prefs.getInt("pal", 1)
+            if (pal != THEMES.indexOf(th)) remap(editor.text, THEMES[pal], th)
         }
         editor.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, d: Int) {}
@@ -168,15 +184,17 @@ class FloatingService : Service() {
         val grip = chip("◢", true) {}
         foot.addView(grip); c.addView(foot)
 
+        if (!::cp.isInitialized) {
         val w = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         cp = WindowManager.LayoutParams(dp(320), dp(400), WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, w, PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.TOP or Gravity.START; x = dp(24); y = dp(120)
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN
         }
-        bp = WindowManager.LayoutParams(dp(56), dp(56), WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        bp = WindowManager.LayoutParams(dp(60), dp(60), WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL, PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.TOP or Gravity.START
         }
+        } else cp.flags = cp.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         drag(title, { card }, { cp }, null)
         c.setOnTouchListener { _, ev -> if (ev.action == MotionEvent.ACTION_OUTSIDE) setFocusable(false); false }
         var gx = 0f; var gy = 0f; var gw = 0; var gh = 0
@@ -227,10 +245,7 @@ class FloatingService : Service() {
         bp.x = cp.x; bp.y = cp.y
         wm.removeView(card)
         if (bubble == null) {
-            bubble = TextView(this).apply {
-                text = "✎"; textSize = 24f; setTextColor(0xFFFFF176.toInt()); gravity = Gravity.CENTER
-                background = shape(DARK, dp(28).toFloat(), 0x55FFFFFF, dp(2))
-            }
+            bubble = BubbleView(this)
             drag(bubble!!, { bubble }, { bp }) { expand() }
         }
         wm.addView(bubble, bp); showingBubble = true
@@ -239,6 +254,27 @@ class FloatingService : Service() {
     private fun expand() {
         wm.removeView(bubble); cp.x = bp.x; cp.y = bp.y
         showingBubble = false; wm.addView(card, cp)
+    }
+
+    private fun toggleTheme() {
+        val old = th; val nw = if (old === NIGHT) NOTE else NIGHT
+        remap(editor.text, old, nw)
+        val i = old.text.indexOf(textColor); textColor = if (i >= 0) nw.text[i] else nw.text[0]
+        th = nw; prefs.edit().putInt("theme", THEMES.indexOf(nw)).apply()
+        save(); wm.removeView(card); swatches.clear(); build()
+    }
+
+    private fun remap(t: Editable, a: Theme, b: Theme) {
+        for (sp in t.getSpans(0, t.length, Any::class.java)) {
+            val st = t.getSpanStart(sp); val en = t.getSpanEnd(sp)
+            if (sp is ForegroundColorSpan) {
+                var i = a.text.indexOf(sp.foregroundColor); if (sp.foregroundColor == OLD_INK) i = 0
+                if (i >= 0) { t.removeSpan(sp); t.setSpan(ForegroundColorSpan(b.text[i]), st, en, FL) }
+            } else if (sp is BackgroundColorSpan) {
+                val i = a.hl.indexOf(sp.backgroundColor)
+                if (i >= 0) { t.removeSpan(sp); t.setSpan(BackgroundColorSpan(b.hl[i]), st, en, FL) }
+            }
+        }
     }
 
     private fun hasSel() = editor.selectionStart >= 0 && editor.selectionStart != editor.selectionEnd
@@ -283,7 +319,7 @@ class FloatingService : Service() {
 
     private fun save() {
         if (!::editor.isInitialized) return
-        prefs.edit().putString("note", Html.toHtml(editor.text, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE)).apply()
+        prefs.edit().putString("note", Html.toHtml(editor.text, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE)).putInt("pal", THEMES.indexOf(th)).apply()
     }
 
     override fun onDestroy() {
